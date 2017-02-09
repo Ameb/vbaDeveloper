@@ -10,13 +10,11 @@ Attribute VB_Name = "Build"
 ' 5. Enable programatic access to VBA:
 '       File -> Options -> Trust Center, Trust Center Settings, -> Macros,
 '       tick the box: 'Enable programatic access to VBA'  (In excel 2010: 'Trust access to the vba project object model')
-' 6. If using a non-English version of Excel, rename your current workbook into ThisWorkbook (in VB Editor, press F4,
-'    then under the local name for Microsoft Excel Objects, select the workbook. Set the property '(Name)' to ThisWorkbook)
-' 7. In VB Editor, press F4, then under Microsoft Excel Objects, select ThisWorkbook.Set the property 'IsAddin' to TRUE
-' 8. In VB Editor, menu File-->Save Book1; Save as vbaDeveloper.xlam in the same directory as 'src'
-' 9. Close excel. Open excel with a new workbook, then open the just saved vbaDeveloper.xlam
-' 10.Let vbaDeveloper import its own code. Put the cursor in the function 'testImport' and press F5
-' 11.If necessary rename module 'Build1' to Build. Menu File-->Save vbaDeveloper.xlam
+' 6. In VB Editor, press F4, then under Microsoft Excel Objects, select ThisWorkbook.Set the property 'IsAddin' to TRUE
+' 7. In VB Editor, menu File-->Save Book1; Save as vbaDeveloper.xlam in the same directory as 'src'
+' 8. Close excel. Open excel with a new workbook, then open the just saved vbaDeveloper.xlam
+' 9. Let vbaDeveloper import its own code. Put the cursor in the function 'testImport' and press F5
+' 10.If necessary rename module 'Build1' to Build. Menu File-->Save vbaDeveloper.xlam
 '''
 
 Option Explicit
@@ -72,7 +70,7 @@ Public Function getSourceDir(fullWorkbookPath As String, createIfNotExists As Bo
     Dim srcDir As String
     srcDir = projDir & "src\"
     Dim exportDir As String
-    exportDir = srcDir & FSO.GetFileName(fullWorkbookPath) & "\"
+    exportDir = srcDir & Replace(FSO.GetFileName(fullWorkbookPath), ".", "_") & "\"
 
     If createIfNotExists Then
         If Not FSO.FolderExists(srcDir) Then
@@ -335,28 +333,28 @@ End Function
 ' Returns a reference to the workbook. Opens it if it is not already opened.
 ' Raises error if the file cannot be found.
 Public Function openWorkbook(ByVal filePath As String) As Workbook
-    Dim wb As Workbook
+    Dim Wb As Workbook
     Dim fileName As String
     fileName = Dir(filePath)
     On Error Resume Next
-    Set wb = Workbooks(fileName)
+    Set Wb = Workbooks(fileName)
     On Error GoTo 0
-    If wb Is Nothing Then
-        Set wb = Workbooks.Open(filePath) 'can raise error
+    If Wb Is Nothing Then
+        Set Wb = Workbooks.Open(filePath) 'can raise error
     End If
-    Set openWorkbook = wb
+    Set openWorkbook = Wb
 End Function
 
 
 ' Returns the CodeName of the added sheet or an empty String if the workbook could not be opened.
 Public Function addSheetToWorkbook(sheetName As String, workbookFilePath As String) As String
-    Dim wb As Workbook
+    Dim Wb As Workbook
     On Error Resume Next 'can throw if given path does not exist
-    Set wb = openWorkbook(workbookFilePath)
+    Set Wb = openWorkbook(workbookFilePath)
     On Error GoTo 0
-    If Not wb Is Nothing Then
+    If Not Wb Is Nothing Then
         Dim ws As Worksheet
-        Set ws = wb.Sheets.Add(After:=wb.Sheets(wb.Sheets.Count))
+        Set ws = Wb.Sheets.Add(After:=Wb.Sheets(Wb.Sheets.Count))
         ws.name = sheetName
         'ws.CodeName = sheetName: cannot assign to read only property
         Debug.Print "Sheet added " & sheetName

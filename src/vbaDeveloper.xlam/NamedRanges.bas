@@ -12,11 +12,11 @@ End Enum
 
 ' Import named ranges from csv file
 ' Existing ranges with the same identifier will be replaced.
-Public Sub importNamedRanges(wb As Workbook)
+Public Sub importNamedRanges(Wb As Workbook)
     Dim importDir As String
-    importDir = Build.getSourceDir(wb.FullName, createIfNotExists:=False)
+    importDir = Build.getSourceDir(Wb.FullName, createIfNotExists:=False)
     If importDir = "" Then
-        Debug.Print "No import directory for workbook " & wb.name & ", skipping"
+        Debug.Print "No import directory for workbook " & Wb.name & ", skipping"
         Exit Sub
     End If
 
@@ -29,14 +29,14 @@ Public Sub importNamedRanges(wb As Workbook)
         Dim line As String
         Do Until inStream.AtEndOfStream
             line = inStream.ReadLine
-            importName wb, line
+            importName Wb, line
         Loop
         inStream.Close
     End If
 End Sub
 
 
-Private Sub importName(wb As Workbook, line As String)
+Private Sub importName(Wb As Workbook, line As String)
     Dim parts As Variant
     parts = Split(line, ",")
     Dim rangeName As String, rangeAddress As String, comment As String
@@ -46,14 +46,14 @@ Private Sub importName(wb As Workbook, line As String)
 
     ' Existing namedRanges don't need to be removed first.
     ' wb.Names.Add will automatically replace or add the given namedRange.
-    wb.Names.Add(rangeName, rangeAddress).comment = comment
+    Wb.Names.Add(rangeName, rangeAddress).comment = comment
 End Sub
 
 
 'Export named ranges to csv file
-Public Sub exportNamedRanges(wb As Workbook)
+Public Sub exportNamedRanges(Wb As Workbook)
     Dim exportDir As String
-    exportDir = Build.getSourceDir(wb.FullName, createIfNotExists:=True)
+    exportDir = Build.getSourceDir(Wb.FullName, createIfNotExists:=True)
     Dim fileName As String
     fileName = exportDir & NAMED_RANGES_FILE_NAME
 
@@ -61,7 +61,7 @@ Public Sub exportNamedRanges(wb As Workbook)
     Set lines = New Collection
     Dim aName As name
     Dim t As Variant
-    For Each t In wb.Names
+    For Each t In Wb.Names
         Set aName = t
         If hasValidRange(aName) Then
             lines.Add aName.name & "," & aName.RefersTo & "," & aName.comment
@@ -98,10 +98,10 @@ End Function
 ' Clean up all named ranges that don't refer to a valid range.
 ' This sub is not used by the import and export functions.
 ' It is provided only for convenience and can be run manually.
-Public Sub removeInvalidNamedRanges(wb As Workbook)
+Public Sub removeInvalidNamedRanges(Wb As Workbook)
     Dim aName As name
     Dim t As Variant
-    For Each t In wb.Names
+    For Each t In Wb.Names
         Set aName = t
         If Not hasValidRange(aName) Then
             aName.Delete
