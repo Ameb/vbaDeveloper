@@ -5,14 +5,19 @@ Private Const MENU_TITLE = "VbaDeveloper"
 Private Const XML_MENU_TITLE = "XML Import-Export"
 Private Const MENU_REFRESH = "Refresh this menu"
 
-
+Dim mRibbon As IRibbonUI
+Dim mImportXML As String, mExportXML As String
 Public Sub createMenu()
     Dim rootMenu As CommandBarPopup
-
+    Dim newMenu As CommandBar
+    'Delete just in case
+    On Error Resume Next
+    CommandBars(MENU_TITLE).Delete
+    On Error GoTo 0
     'Add the top-level menu to the ribbon Add-ins section
-    Set rootMenu = Application.CommandBars(1).Controls.Add(Type:=msoControlPopup, _
-    Before:=10, _
-    Temporary:=True)
+    Set newMenu = Application.CommandBars.Add(MENU_TITLE, msoBarTop)
+    newMenu.visible = True
+    Set rootMenu = newMenu.Controls.Add(Type:=msoControlPopup, Temporary:=True)
     rootMenu.caption = MENU_TITLE
 
     Dim exSubMenu As CommandBarPopup
@@ -27,9 +32,13 @@ Public Sub createMenu()
     refreshItem.FaceId = 37
 
     ' menuItem.FaceId = FaceId ' set a picture
+    mExportXML = vbNullString
+    mImportXML = vbNullString
+    Dim i As Integer
     Dim vProject As Variant
     For Each vProject In Application.VBE.VBProjects
         ' We skip over unsaved projects where project.fileName throws error
+        i = i + 1
         On Error GoTo nextProject
         Dim project As VBProject
         Set project = vProject
@@ -39,17 +48,25 @@ Public Sub createMenu()
         caption = projectName & " (" & Dir(project.fileName) & ")" '<- this can throw error
 
         Dim exCommand As String, imCommand As String, formatCommand As String
-        exCommand = "'Menu.exportVbProject """ & project.fileName & """'"
-        imCommand = "'Menu.importVbProject """ & project.fileName & """'"
-        formatCommand = "'Menu.formatVbProject """ & project.fileName & """'"
+        exCommand = "'Menu.exportVbProject """ & projectName & """'"
+        imCommand = "'Menu.importVbProject """ & projectName & """'"
+        formatCommand = "'Menu.formatVbProject """ & projectName & """'"
 
         addMenuItem exSubMenu, exCommand, caption
         addMenuItem imSubMenu, imCommand, caption
         addMenuItem formatSubMenu, formatCommand, caption
+        
+        ' Add buttons to ribbon
+        mExportXML = mExportXML & _
+            "<button id='Export" & projectName & "Button" & i & "' onAction='RibbonExport' label='" & projectName & "' tag='" & projectName & "'/>"
+        mImportXML = mImportXML & _
+            "<button id='Export" & projectName & "Button" & i & "' onAction='RibbonImport' label='" & projectName & "' tag='" & projectName & "'/>"
 nextProject:
     Next vProject
     On Error GoTo 0 'reset the error handling
-
+    ' Build ribbon xml
+    mExportXML = "<menu xmlns='http://schemas.microsoft.com/office/2006/01/customui'> " & mExportXML & "</menu>"
+    mImportXML = "<menu xmlns='http://schemas.microsoft.com/office/2006/01/customui'> " & mImportXML & "</menu>"
     'Add menu items for creating and rebuilding XML files
     Dim xmlMenu As CommandBarPopup, exXmlSubMenu As CommandBarPopup
     Set xmlMenu = Application.CommandBars(1).Controls.Add(Type:=msoControlPopup, _
@@ -119,17 +136,23 @@ End Sub
 Public Sub refreshMenu()
     menu.deleteMenu
     menu.createMenu
+    If Not mRibbon Is Nothing Then
+        mRibbon.Invalidate
+    End If
+    Debug.Print "Actualizado menu"
 End Sub
-
-Public Sub exportVbProject(ByVal projectPath As String)
+'==================================================================================================================================================================
+' Core: Import/Export
+'==================================================================================================================================================================
+Public Sub exportVbProject(ByVal projectName As String)
     On Error GoTo exportVbProject_Error
 
     Dim project As VBProject
-    Set project = GetProjectByPath(projectPath)
+    Set project = Application.VBE.VBProjects(projectName)
     Build.exportVbaCode project
-    Dim wb As Workbook
-    Set wb = Build.openWorkbook(project.fileName)
-    NamedRanges.exportNamedRanges wb
+    Dim Wb As Workbook
+    Set Wb = Build.openWorkbook(project.fileName)
+    NamedRanges.exportNamedRanges Wb
     MsgBox "Finished exporting code for: " & project.name
 
     On Error GoTo 0
@@ -139,15 +162,16 @@ exportVbProject_Error:
 End Sub
 
 
-Public Sub importVbProject(ByVal projectPath As String)
+Public Sub importVbProject(ByVal projectName As String)
     On Error GoTo importVbProject_Error
 
     Dim project As VBProject
-    Set project = GetProjectByPath(projectPath)
+    Set project = Application.VBE.VBProjects(projectName)
     Build.importVbaCode project
-    Dim wb As Workbook
-    Set wb = Build.openWorkbook(project.fileName)
-    NamedRanges.importNamedRanges wb
+    Dim Wb As Workbook
+    Set Wb = Build.openWorkbook(project.fileName)
+    Debug.Print "Skipping namedranges import"
+    'NamedRanges.importNamedRanges wb
     MsgBox "Finished importing code for: " & project.name
 
     On Error GoTo 0
@@ -157,11 +181,11 @@ importVbProject_Error:
 End Sub
 
 
-Public Sub formatVbProject(ByVal projectPath As String)
+Public Sub formatVbProject(ByVal projectName As String)
     On Error GoTo formatVbProject_Error
 
     Dim project As VBProject
-    Set project = GetProjectByPath(projectPath)
+    Set project = Application.VBE.VBProjects(projectName)
     Formatter.formatProject project
     MsgBox "Finished formatting code for: " & project.name & vbNewLine _
     & vbNewLine _
@@ -228,7 +252,9 @@ folderError:
     End If
 
 End Sub
-
+'==================================================================================================================================================================
+'Auxiliar
+'==================================================================================================================================================================
 Function GetFolder(InitDir As String) As String
     Dim fldr As FileDialog
     Dim sItem As String
@@ -250,17 +276,53 @@ Function GetFolder(InitDir As String) As String
     GetFolder = sItem
     Set fldr = Nothing
 End Function
+'==================================================================================================================================================================
+'==================================================================================================================================================================
+'==================================================================================================================================================================
+'==================================================================================================================================================================
+'Ribbon Code
+'==================================================================================================================================================================
+'==================================================================================================================================================================
+'==================================================================================================================================================================
+'==================================================================================================================================================================
+Public Sub RibbonExport(control As IRibbonControl)
+    menu.exportVbProject control.Tag
+End Sub
+Public Sub RibbonImport(control As IRibbonControl)
+    menu.importVbProject control.Tag
+End Sub
+Sub RibbonGetMenuContent(control As IRibbonControl, ByRef returnedVal)
+    Select Case control.Tag
+    Case "Export"
+        returnedVal = mExportXML
+    Case "Import"
+        returnedVal = mImportXML
+    End Select
+End Sub
+'==================================================================================================================================================================
+'Called On Load From XML
+'==================================================================================================================================================================
+Sub Ribbon_onLoad(ByVal ribbon As IRibbonUI)
+'On Error GoTo err_Handle
+'Const strError As String = "Error - Please Contact " & gblDeveloper & " Quoting 'OnLoad'"
+    Set mRibbon = ribbon
+    Exit Sub
+'Set Any Objects to Nothing, Exits Sub
+Cleanup:
+    Set mRibbon = Nothing
+    Exit Sub
+'Throw Error
+err_Handle:
+    'errMsg strError & Chr(10) & Err.Description & Chr(10) & errModule
+    Resume Cleanup
+End Sub
+Public Sub Ribbon_Refresh()
+    Debug.Print mImportXML
+    Debug.Print mExportXML
+    mRibbon.Invalidate
+End Sub
 
-Function GetProjectByPath(ByVal projectPath As String) As VBProject
-    'Simple search to find project by file path
-    Dim project As VBProject
-    For Each project In Application.VBE.VBProjects
-        If UCase(project.fileName) = UCase(projectPath) Then
-            Set GetProjectByPath = project
-            Exit Function
-        End If
-    Next project
-    'If not found return nothing
-    Set GetProjectByPath = Nothing
-End Function
+
+
+
 
